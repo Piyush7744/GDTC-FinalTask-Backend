@@ -9,7 +9,6 @@ from sqlalchemy.orm import Session
 from Database.database import engine, SessionLocal 
 from Models import models
 
-
 def get_db(): 
     db = SessionLocal() 
     try: 

@@ -4,8 +4,6 @@ from fastapi.middleware.cors import CORSMiddleware
 # from apscheduler.schedulers.background import BackgroundScheduler
 # from Routes.routes import update_price
 
-
-
 app = FastAPI()
 
 

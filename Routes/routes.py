@@ -13,6 +13,7 @@ from sqlalchemy import func,case
 from Schema import schema 
 
 models.Base.metadata.create_all(bind=engine)
+
 def get_db(): 
     db = SessionLocal() 
     try: 
@@ -53,22 +54,11 @@ async def login( db:db_dependency,form_data: OAuth2PasswordRequestForm = Depends
         )
         return {"access_token" : access_token, "token_type" : "bearer"}
 
-
     user = db.query(models.User).filter(models.User.email == form_data.username).first()
     if not user or not verify_password(form_data.password, user.password):
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid credentials")
     access_token = create_access_token(data={"sub": user.email,"role":"user"}, expires_delta=timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES))
     return {"access_token": access_token, "token_type": "bearer"}
-
-
-@router.post("/shares",status_code=status.HTTP_201_CREATED)
-async def create_share(share: schema.ShareBase,db:db_dependency,admin:Annotated[dict,Depends(get_current_admin)]):
-    if admin["role"]!='admin':
-        raise HTTPException(status_code=401,detail="Unauthorized Access")
-    db_product = models.Shares(sid=share.sid, name=share.name, price=share.price,description=share.description)
-    db.add(db_product)
-    db.commit()
-
 
 @router.post("/order",status_code=status.HTTP_201_CREATED)
 async def create_order(order: schema.OrderBase,db:db_dependency,current_user:Annotated[schema.UserBase,Depends(get_current_user)]):
@@ -138,7 +128,6 @@ def sell_shares(request: schema.SellRequest, db: db_dependency,current_user:Anno
 #All Get methods
 @router.get("/user/",status_code=status.HTTP_200_OK,response_model = schema.User2Base)
 async def get_customer(db:db_dependency,current_user:Annotated[schema.UserBase,Depends(get_current_user)]):
-    print(current_user)
     user = db.query(models.User).filter(models.User.id == current_user.id).first()
     if user is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND,detail="User not found")
@@ -149,7 +138,6 @@ async def get_shares():
     positions = nsefetch('https://www.nseindia.com/api/equity-stockIndices?index=SECURITIES%20IN%20F%26O')
     df = pd.DataFrame(positions['data'])
     dp = df[['symbol', 'identifier', 'series', 'open', 'dayHigh', 'dayLow', 'lastPrice', 'previousClose', 'change', 'pChange', 'totalTradedVolume', 'totalTradedValue', 'lastUpdateTime', 'yearHigh', 'yearLow', 'nearWKH', 'nearWKL', 'perChange365d', 'date365dAgo', 'chart365dPath', 'date30dAgo', 'perChange30d', 'chart30dPath', 'chartTodayPath', 'meta']]
-    print(df.columns.tolist())
     return dp.astype(object).to_dict(orient="records")
 
 @router.get("/shareDetails/{ticker}",status_code=status.HTTP_200_OK)
@@ -164,7 +152,6 @@ async def get_share_details(ticker:str):
 async def get_share_details(ticker:str):
     dat = yf.Ticker(ticker)
     data = dat.info
-    print(data)
     return data
 
 @router.get("/userOrders")
@@ -240,7 +227,7 @@ async def get_user_shares(db: Annotated[Session, Depends(get_db)],current_user: 
                 (models.Order.Otype == models.OrderType.BUY, models.Order.quantity),
                 else_=-models.Order.quantity
             )
-        ) > 0  # Only include shares the user actually holds
+        ) > 0 
     ).all()
  
     if not net_holdings:
@@ -301,6 +288,15 @@ async def delete_user(uid:int,db:db_dependency):
 
 
 # All share methods of sql
+
+
+# @router.post("/shares",status_code=status.HTTP_201_CREATED)
+# async def create_share(share: schema.ShareBase,db:db_dependency,admin:Annotated[dict,Depends(get_current_admin)]):
+#     if admin["role"]!='admin':
+#         raise HTTPException(status_code=401,detail="Unauthorized Access")
+#     db_product = models.Shares(sid=share.sid, name=share.name, price=share.price,description=share.description)
+#     db.add(db_product)
+#     db.commit()
 
 # @router.put("/share/{sid}",status_code=status.HTTP_204_NO_CONTENT)
 # async def update_product(sid: int,share:schema.ShareBase,db:db_dependency):
